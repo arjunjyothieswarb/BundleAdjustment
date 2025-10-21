@@ -1,2 +1,2 @@
 # BundleAdjustment
-A repository for performing bundle adjustment on a set of images to extract point cloud
+A repository for performing bundle adjustment to extract point cloud from a set of images 
