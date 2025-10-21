@@ -1,0 +1,23 @@
+version: 1.0.0
+
+ImageDir: "./data"
+ScaleFactor: 0.3
+
+Preprocessing:
+    GaussianBlur:
+        KernelSize: 3
+    CLAHE:
+        clipLimit: 5
+
+
+SIFT:
+    nFeatures: 0
+    nOctaveLayers: 3
+    contrastThreshold: 0.03 #0.03
+    edgeThreshold: 20 #20
+    sigma: 1.4 #1.4
+
+FeatureMatching:
+    lowes_const: 0.75 #0.75
+    RANSAC_THRESH: 3.0 #8.0
+    MIN_MATCH_COUNT: 10
