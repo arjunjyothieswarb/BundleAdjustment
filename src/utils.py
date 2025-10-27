@@ -90,6 +90,12 @@ class BundleAdjustmentContainer():
         dirPath = config["ImageDir"]
         self.dirPath = os.path.join(os.getcwd(), dirPath)
 
+        # Initializing the camera matrix
+        self.CAM_MATRIX = np.array([
+                            [1662,    0, 540],
+                            [   0, 1673, 960],
+                            [   0,    0,   1]], dtype=np.float32)
+
         # Loading SIFT params
         self.siftParams = {
             "nFeatures": config["SIFT"]["nFeatures"],
@@ -120,6 +126,10 @@ class BundleAdjustmentContainer():
     def extractFeatures(self, imageList=None) -> tuple[list, list]:
         """
         Extracts SIFT keypoints and descriptors from each image in the image list.
+        
+        Args:
+            imageList (list): List of images.
+
         Returns:
             tuple[list, list]: A tuple containing two lists:
                 - kpList: A list of keypoints for each image.
@@ -153,12 +163,16 @@ class BundleAdjustmentContainer():
     
 
     def findMatches(self, idx1: int, idx2: int) -> list:
-
         """
         Finds matching key-points between images of the indices provided. Returns
         the good matches.
+
+        Args:
+            idx1 (int): Index of image 1
+            idx2 (int): Index of image 2
+
         Returns:
-            List: List of matches
+            list: List of matches
         """
 
         # BF matcher with default params
@@ -174,3 +188,37 @@ class BundleAdjustmentContainer():
                 good.append([m])
         
         return good
+    
+    def computeEssentialMatrix(self, idx1: int, idx2: int) -> tuple[np.array, int]:
+        """
+        Computes the essential matrix between 2 cameras, given the indices of the images.
+
+        Args:
+            idx1 (int): Index of image 1
+            idx2 (int): Index of image 2
+
+        Returns:
+            tuple[np.array, int]: A tuple containing the essential matrix and number of inlier matches
+        """
+        # Getting the key-points
+        kp1 = self.kpList[idx1]
+        kp2 = self.kpList[idx2]
+
+        # Computing the matches
+        matches = self.findMatches(kp1, kp2)
+
+        # Checking for min number of matches
+        if len(matches) < self.MIN_MATCH_CNT:
+            return[None, -1]
+        
+        # Extracting source pts and destination pts
+        srcPts = np.float32([kp2[m.trainIdx].pt for [m] in matches]).reshape(-1,1,2)
+        dstPts = np.float32([kp1[m.queryIdx].pt for [m] in matches]).reshape(-1,1,2)
+
+        # Computing the essential matrix
+        E, mask = cv.findEssentialMat(srcPts, dstPts, cameraMatrix=self.CAM_MATRIX, method=cv.RANSAC, threshold=self.RANSAC_THRESH)
+
+        mask = mask.ravel().tolist()
+        lenMask = mask.count(1)
+
+        return E, lenMask

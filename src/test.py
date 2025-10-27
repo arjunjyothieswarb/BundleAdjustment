@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+import open3d
 
 from utils import *
 import log_utils as log
@@ -70,6 +71,53 @@ def TestFeatureMatching(container: BundleAdjustmentContainer, displayFlag: bool=
     
     return None
 
+def TestComputeEssentialMatrixCompute(container: BundleAdjustmentContainer, displayFlag: bool=True) -> None:
+
+    CAM_MATRIX = np.array([
+                            [1662,    0, 540],
+                            [   0, 1673, 960],
+                            [   0,    0,   1]], dtype=np.float32)
+    
+    drawnImgList = []
+
+    for idx in range(len(container.imgList) - 1):
+
+        # Images
+        img1 = container.grayList[idx]
+        img2 = container.grayList[idx+1]
+
+        # Descriptors
+        kp1 = container.kpList[idx]
+        kp2 = container.kpList[idx+1]
+        
+        # Finding matches
+        matches = container.findMatches(idx, idx+1)
+
+        if len(matches)<10:
+            print("Not enough matches between image {} and image {}!".format(idx, idx+1))
+            exit()
+        
+        # Extracting source pts and destination pts
+        srcPts = np.float32([kp2[m.trainIdx].pt for [m] in matches]).reshape(-1,1,2)
+        dstPts = np.float32([kp1[m.queryIdx].pt for [m] in matches]).reshape(-1,1,2)
+
+        E, mask = cv.findEssentialMat(srcPts, dstPts, CAM_MATRIX, method=cv.RANSAC, threshold=3)
+
+        img3 = cv.drawMatchesKnn(img1, kp1, img2, kp2, matches, None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS, matchesMask=mask)
+        drawnImgList.append(img3)
+
+        log.info(f"Num matches between images {idx} and {idx+1}: {int(sum(mask))}")
+    
+        # Displaying the images
+    if displayFlag:
+        scaleFactor = config["ScaleFactor"]
+        DisplayImages(drawnImgList, (scaleFactor, scaleFactor))
+    
+    return None
+
+
+
+
 
 if __name__ == "__main__":
     
@@ -77,7 +125,7 @@ if __name__ == "__main__":
     container = BundleAdjustmentContainer(config)
     
     # Loading the images
-    container.imgList, container.grayList = LoadImages("data/", end=5)
+    container.imgList, container.grayList = LoadImages("data/")
 
     # Preprocessing the images
     container.grayList = PreprocessImages(container.grayList)
@@ -86,7 +134,10 @@ if __name__ == "__main__":
     TestFeatureExtraction(container, False)
 
     # Testing matches
-    TestFeatureMatching(container, True)
+    TestFeatureMatching(container, False)
+
+    # Testing Essential Matrix computation and filtering matches
+    TestComputeEssentialMatrixCompute(container, True)
 
     # scaleFactor = config["ScaleFactor"]
     # DisplayImages(container.grayList, (scaleFactor, scaleFactor))
