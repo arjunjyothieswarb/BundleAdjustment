@@ -122,6 +122,9 @@ class BundleAdjustmentContainer():
         # Initializing the matcher
         self.BF = cv.BFMatcher()
 
+    def __len__(self):
+        return len(self.kpList)
+
 
     def extractFeatures(self, imageList=None) -> tuple[list, list]:
         """
@@ -205,10 +208,11 @@ class BundleAdjustmentContainer():
         kp2 = self.kpList[idx2]
 
         # Computing the matches
-        matches = self.findMatches(kp1, kp2)
+        matches = self.findMatches(idx1, idx2)
 
         # Checking for min number of matches
         if len(matches) < self.MIN_MATCH_CNT:
+            log.warn(f"Not enough matches between image {idx1} and image {idx2}!")
             return[None, -1]
         
         # Extracting source pts and destination pts
@@ -219,6 +223,7 @@ class BundleAdjustmentContainer():
         E, mask = cv.findEssentialMat(srcPts, dstPts, cameraMatrix=self.CAM_MATRIX, method=cv.RANSAC, threshold=self.RANSAC_THRESH)
 
         mask = mask.ravel().tolist()
-        lenMask = mask.count(1)
+        numMatches = mask.count(1)
+        log.info(f"Num matches between images {idx1} and {idx2}: {numMatches}")
 
-        return E, lenMask
+        return E, numMatches

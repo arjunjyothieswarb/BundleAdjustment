@@ -1,4 +1,5 @@
 from datetime import datetime
+from termcolor import colored
 
 def info(message: str) -> None:
     # Getting the time header
@@ -20,7 +21,7 @@ def warn(message: str) -> None:
     header = "[WARNING]" + timeheader + ": "
     
     # Printing the message
-    print(header + message)
+    print(colored(header, "yellow") + message)
 
 def error(message: str) -> None:
     # Getting the time header
@@ -31,7 +32,7 @@ def error(message: str) -> None:
     header = "[ERROR]" + timeheader + ": "
     
     # Printing the message
-    print(header + message)
+    print(colored(header, "red") + message)
 
 if __name__ == "__main__":
     error("Hello!")
