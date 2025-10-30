@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import yaml
 import os
+import gtsam.symbol_shorthand as gtsam_symbol
 
 import log_utils as log
 
@@ -117,16 +118,20 @@ class BundleAdjustmentContainer():
 
         # Initializing the key-point list and the descriptor list
         self.kpList = []
+        self.kpIDList = []
         self.desList = []
 
         # Initializing the matcher
         self.BF = cv.BFMatcher()
 
+        # Initalizing item counter
+        self.itemCounter = {'X': 0, 'L': 0} # X is reserved for Camera poses, Y is reserved for Landmarks
+
     def __len__(self):
         return len(self.kpList)
 
 
-    def extractFeatures(self, imageList=None) -> tuple[list, list]:
+    def extractFeatures(self, imageList=None) -> tuple[list, list, list]:
         """
         Extracts SIFT keypoints and descriptors from each image in the image list.
         
@@ -137,6 +142,7 @@ class BundleAdjustmentContainer():
             tuple[list, list]: A tuple containing two lists:
                 - kpList: A list of keypoints for each image.
                 - desList: A list of descriptors for each image.
+                - kpIDList: A list of keypoint IDs
         """
 
         if imageList == None:
@@ -151,18 +157,23 @@ class BundleAdjustmentContainer():
         )
 
         kpList = []
+        kpIDList = []
         desList = []
 
         # Detecting and computing features and descriptors
         for image in imageList:
             
             kp, des = sift.detectAndCompute(image, None)
+            
+            # Creating a list of IDs corresponding to each kp - Initialzed as None
+            kpID = [None] * len(kp)
 
             # Appending them to a list
             kpList.append(kp)
             desList.append(des)
+            kpIDList.append(kpID)
 
-        return (kpList, desList)
+        return (kpList, desList, kpIDList)
     
 
     def findMatches(self, idx1: int, idx2: int) -> list:
@@ -188,7 +199,7 @@ class BundleAdjustmentContainer():
         good = []
         for m, n in matches:
             if m.distance < self.lowes_const*n.distance:
-                good.append([m])
+                good.append(m)
         
         return good
     
@@ -216,14 +227,34 @@ class BundleAdjustmentContainer():
             return[None, -1]
         
         # Extracting source pts and destination pts
-        srcPts = np.float32([kp2[m.trainIdx].pt for [m] in matches]).reshape(-1,1,2)
-        dstPts = np.float32([kp1[m.queryIdx].pt for [m] in matches]).reshape(-1,1,2)
+        srcPts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1,1,2)
+        dstPts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1,1,2)
 
         # Computing the essential matrix
         E, mask = cv.findEssentialMat(srcPts, dstPts, cameraMatrix=self.CAM_MATRIX, method=cv.RANSAC, threshold=self.RANSAC_THRESH)
 
         mask = mask.ravel().tolist()
-        numMatches = mask.count(1)
+        # numMatches = mask.count(1)
+
+        # Get the kpIds
+        kpID1 = self.kpIDList[idx1]
+        kpID2 = self.kpIDList[idx2]
+
+        numMatches = 0
+        for idx, mask_element in enumerate(mask):
+            if not mask_element:
+                continue
+            m = matches[idx]
+
+            # Assigning ID to landmarks
+            kpID1[m.queryIdx] = gtsam_symbol.L(self.itemCounter['L'])
+            kpID2[m.trainIdx] = gtsam_symbol.L(self.itemCounter['L'])
+
+            # Updating counters
+            self.itemCounter['L'] += 1
+            numMatches += 1
+            
+
         log.info(f"Num matches between images {idx1} and {idx2}: {numMatches}")
 
         return E, numMatches

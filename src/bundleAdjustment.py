@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     # Extracting features
     log.info("Extracting features")
-    container.kpList, container.desList = container.extractFeatures(grayList)
+    container.kpList, container.desList, container.kpIDList = container.extractFeatures(grayList)
 
     # Feature matching
     log.info("Matching features")
