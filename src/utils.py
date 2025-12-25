@@ -203,7 +203,7 @@ class BundleAdjustmentContainer():
         
         return good
     
-    def computeEssentialMatrix(self, idx1: int, idx2: int) -> tuple[np.array, int]:
+    def computeEssentialMatrix(self, idx1: int, idx2: int) -> tuple[np.array, list, list]:
         """
         Computes the essential matrix between 2 cameras, given the indices of the images.
 
@@ -212,8 +212,11 @@ class BundleAdjustmentContainer():
             idx2 (int): Index of image 2
 
         Returns:
-            tuple[np.array, int]: A tuple containing the essential matrix and number of inlier matches
+            tuple[np.array, list]:
+                E (np.array): The 4x4 essential matrix encoding the relative poses of the 2 cameras
+                inliers (list): List of inlier matches
         """
+
         # Getting the key-points
         kp1 = self.kpList[idx1]
         kp2 = self.kpList[idx2]
@@ -236,22 +239,41 @@ class BundleAdjustmentContainer():
         mask = mask.ravel().tolist()
         # numMatches = mask.count(1)
 
+        inliers = []
+        for idx, mask_element in enumerate(mask):
+            if not mask_element:
+                continue
+            inliers.append(matches[idx])
+
+        return E, inliers
+    
+
+    def addLandMarks(self, idx1: int, idx2: int, mask: list, ):
+        
         # Get the kpIds
         kpID1 = self.kpIDList[idx1]
         kpID2 = self.kpIDList[idx2]
 
-        numMatches = 0
         for idx, mask_element in enumerate(mask):
             if not mask_element:
                 continue
             m = matches[idx]
-
+            
+            
             # Assigning ID to landmarks
-            kpID1[m.queryIdx] = gtsam_symbol.L(self.itemCounter['L'])
-            kpID2[m.trainIdx] = gtsam_symbol.L(self.itemCounter['L'])
+            ID1 = kpID1[m.queryIdx]
+            ID2 = kpID2[m.trainIdx]
+            if ID1 is None and ID2 is None:
+                kpID1[m.queryIdx] = gtsam_symbol.L(self.itemCounter['L'])
+                kpID2[m.trainIdx] = gtsam_symbol.L(self.itemCounter['L'])
+                self.itemCounter['L'] += 1 # Updating the counter
 
-            # Updating counters
-            self.itemCounter['L'] += 1
+            elif ID1 is not None and ID2 is None:
+                kpID2[m.trainIdx] = ID1
+
+            elif ID1 is None and ID2 is not None:
+                kpID1[m.queryIdx] = ID2
+
             numMatches += 1
             
 

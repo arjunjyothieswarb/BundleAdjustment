@@ -48,7 +48,7 @@ if __name__ == "__main__":
     log.info("Extracting features")
     container.kpList, container.desList, container.kpIDList = container.extractFeatures(grayList)
 
-    # Feature matching
+    # Computing Essential matrix and ID-ing landmarks
     log.info("Matching features")
     for idx in range(len(container) - 1):
         
